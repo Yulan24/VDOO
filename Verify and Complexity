@@ -1,0 +1,232 @@
+function Fo(n,p,d)
+    if d lt 0 then return 0; end if;
+    return &+[(-1)^i*Binomial(n,i)*Binomial(n+d-p*i-1,d-p*i):i in [0..d div p]];
+end function;
+
+function Go(n,p,d)
+    if d lt 0 then return 0; end if;
+    return &+[(-1)^(d-p*i)*Binomial(n,d-p*i)*Binomial(n+i-1,i):i in [0..d div p]];
+end function;
+
+function To(n,m,p,d)
+    if Type(p) eq RngIntElt then return To(n,m,[p,p],d); end if;
+    return &+[Fo(n,p[1],d-2*i)*Go(m,p[2],i):i in [0..d div 2]];
+end function;
+
+function vdoopk(v,d,o1,o2,q)
+    F:=GF(q);
+    n:=v+d+o1+o2;
+    m:=d+o1+o2;
+    R:=PolynomialRing(F,n);
+    T:=IdentityMatrix(F,n);
+    T:=InsertBlock(T,RandomMatrix(F,v,m),1,v+1);
+    T:=InsertBlock(T,RandomMatrix(F,d,o1+o2),v+1,v+d+1);
+    T:=InsertBlock(T,RandomMatrix(F,o1,o2),v+d+1,v+d+o1+1);
+    S:=IdentityMatrix(F,m);
+    S:=InsertBlock(S,RandomMatrix(F,d,o1+o2),1,d+1);
+    S:=InsertBlock(S,RandomMatrix(F,o1,o2),d+1,d+o1+1);
+    L:=[&+[T[i,j]*R.j:j in [1..n]]:i in [1..n]];
+    G:=[&+[Random(F)*R.i*R.j:j in [1..Min(k-1,i)],i in [1..k]]:k in [v+1..v+d]];
+    G:=G cat [&+[Random(F)*R.i*R.j:j in [1..Min(v+d,i)],i in [1..v+d+o1]]:k in [1..o1]];
+    G:=G cat [&+[Random(F)*R.i*R.j:j in [1..Min(v+d+o1,i)],i in [1..n]]:k in [1..o2]];
+    G:=[Evaluate(g,L):g in G];
+    return G;
+end function;
+
+function intervdoopk(v,d,o1,o2,q)
+    F:=GF(q);
+    n:=v+d+o1+o2;
+    m:=d+o1+o2;
+    G:=vdoopk(v,d,o1,o2,q);
+    R:=Parent(G[1]);
+    M:=[Matrix(F,[[j ge i select MonomialCoefficient(g,R.i*R.j) else 0:j in [1..n]]:i in [1..n]]):g in G];
+    N:=[A+Transpose(A):A in M];
+    repeat
+        L1:=&+[Random(F)*A:A in N];
+        L2:=&+[Random(F)*A:A in N];
+    until IsUnit(L1) and IsUnit(L2);
+    L1:=L1^(-1);
+    L2:=L2^(-1);
+    M1:=[Transpose(L1)*A*L1:A in M];
+    M2:=[Transpose(L2)*A*L2:A in M];
+    M3:=[Transpose(L1)*A*L2:A in N];
+    G:=[&+[A[i,j]*R.i*R.j:i in [1..n],j in [1..n]]:A in M1 cat M2 cat M3];
+    return G;
+end function; 
+
+function projdown(G,k)
+    R:=Parent(G[1]);
+    n:=Rank(R);
+    F:=BaseRing(R);
+    S:=PolynomialRing(F,n-k);
+    X:=[S.i:i in [1..n-k]] cat [0:i in [n-k+1..n]];
+    G:=[Evaluate(g,X):g in G];
+    return G;
+end function;
+
+function hilver(v,d,o1,o2,q,k,kind)
+    n:=v+d+o1+o2;
+    m:=d+o1+o2;
+    o:=o2;
+    if kind eq "Inter" then 
+        G:=intervdoopk(v,d,o1,o2,q);
+        m:=3*m-2;
+        o:=2*o2-(n-o2);
+    else G:=vdoopk(v,d,o1,o2,q); end if;
+    if k ne 0 then G:=projdown(G,k); end if;
+    R:=Parent(G[1]);
+    p:=Characteristic(R);
+    P:=quo<R|Ideal([R.i^p:i in [1..n-k]])>;
+    G:=ideal<P|[P!g:g in G]>;
+    S<t>:=PolynomialRing(Integers());
+    f:=S!(HilbertSeries(P)-HilbertSeries(G));
+    return [[Coefficient(f,i):i in [0..(o-k)*(p-1)]],[Max(To(n-k,m,p,i),Fo((o-k),p,i)):i in [0..(o-k)*(p-1)]]];
+end function;
+
+/* Small parameters for computing hilbert series of VDOO*/
+/*
+para;
+[
+    [ 7, 1, 3, 4, 64 ],
+    [ 8, 1, 2, 4, 16 ],
+    [ 6, 1, 2, 3, 64 ],
+    [ 8, 1, 3, 5, 256 ],
+    [ 8, 2, 1, 4, 64 ],
+    [ 7, 2, 1, 3, 64 ],
+    [ 8, 3, 1, 5, 64 ],
+    [ 6, 1, 2, 3, 256 ],
+    [ 8, 3, 3, 4, 256 ],
+    [ 6, 1, 3, 3, 64 ],
+    [ 8, 2, 3, 3, 256 ],
+    [ 8, 2, 3, 4, 256 ],
+    [ 7, 2, 1, 4, 256 ],
+    [ 6, 3, 2, 3, 256 ],
+    [ 9, 3, 3, 6, 16 ],
+    [ 7, 2, 3, 3, 64 ],
+    [ 6, 3, 3, 3, 16 ],
+    [ 6, 3, 1, 3, 64 ],
+    [ 8, 3, 1, 4, 16 ],
+    [ 6, 3, 2, 3, 256 ],
+    [ 6, 3, 2, 3, 64 ],
+    [ 9, 3, 2, 3, 16 ],
+    [ 9, 3, 1, 4, 16 ],
+    [ 9, 2, 2, 4, 64 ],
+    [ 7, 2, 2, 3, 64 ],
+    [ 7, 2, 2, 3, 256 ],
+    [ 9, 2, 3, 3, 16 ],
+    [ 9, 3, 2, 4, 64 ],
+    [ 7, 2, 3, 4, 16 ],
+    [ 9, 1, 1, 4, 64 ],
+    [ 9, 2, 3, 3, 64 ],
+    [ 6, 1, 2, 3, 16 ],
+    [ 7, 3, 3, 3, 16 ],
+    [ 8, 2, 2, 4, 16 ],
+    [ 9, 1, 2, 4, 256 ],
+    [ 6, 1, 3, 3, 256 ],
+    [ 9, 1, 2, 4, 256 ],
+    [ 6, 2, 2, 3, 256 ],
+    [ 6, 3, 1, 3, 16 ],
+    [ 6, 2, 1, 3, 256 ],
+    [ 7, 2, 3, 3, 16 ],
+    [ 8, 3, 3, 5, 64 ],
+    [ 8, 2, 3, 5, 64 ],
+    [ 8, 3, 3, 3, 16 ],
+    [ 8, 2, 2, 4, 256 ],
+    [ 7, 3, 2, 3, 16 ],
+    [ 6, 2, 2, 3, 16 ],
+    [ 8, 1, 2, 5, 16 ],
+    [ 6, 2, 3, 3, 256 ],
+    [ 8, 2, 2, 4, 64 ],
+    [ 7, 3, 1, 3, 256 ],
+    [ 9, 1, 1, 5, 256 ],
+    [ 9, 2, 3, 4, 256 ],
+    [ 6, 1, 2, 3, 64 ],
+    [ 7, 1, 3, 3, 64 ],
+    [ 9, 2, 2, 4, 256 ],
+    [ 9, 3, 2, 6, 64 ],
+    [ 9, 1, 1, 5, 16 ],
+    [ 8, 2, 2, 4, 64 ],
+    [ 9, 3, 2, 6, 16 ],
+    [ 8, 2, 2, 4, 64 ],
+    [ 9, 3, 1, 6, 16 ],
+    [ 8, 1, 1, 5, 16 ],
+    [ 9, 2, 2, 5, 256 ],
+    [ 8, 3, 2, 4, 256 ],
+    [ 9, 3, 3, 6, 16 ],
+    [ 8, 1, 2, 5, 16 ],
+    [ 9, 2, 2, 6, 64 ],
+    [ 9, 1, 1, 6, 64 ],
+    [ 6, 2, 3, 3, 16 ],
+    [ 9, 2, 3, 6, 256 ],
+    [ 6, 3, 1, 3, 256 ],
+    [ 7, 3, 1, 3, 64 ],
+    [ 6, 2, 1, 3, 64 ],
+    [ 8, 2, 2, 4, 64 ],
+    [ 6, 2, 2, 3, 256 ],
+    [ 9, 2, 1, 4, 64 ],
+    [ 7, 3, 2, 4, 64 ],
+    [ 6, 3, 1, 3, 64 ],
+    [ 8, 3, 3, 5, 256 ],
+    [ 6, 1, 2, 3, 64 ],
+    [ 8, 3, 3, 4, 64 ],
+    [ 7, 3, 3, 4, 256 ],
+    [ 8, 2, 2, 3, 16 ],
+    [ 9, 2, 2, 3, 64 ],
+    [ 6, 1, 3, 3, 256 ],
+    [ 7, 1, 3, 3, 64 ],
+    [ 7, 3, 3, 4, 16 ],
+    [ 9, 3, 1, 5, 16 ],
+    [ 6, 2, 1, 3, 16 ],
+    [ 9, 2, 2, 4, 16 ],
+    [ 6, 1, 3, 3, 256 ],
+    [ 9, 2, 3, 4, 64 ],
+    [ 8, 1, 3, 3, 16 ],
+    [ 7, 1, 2, 4, 64 ],
+    [ 9, 1, 2, 6, 64 ],
+    [ 6, 1, 1, 3, 16 ],
+    [ 8, 2, 2, 4, 256 ],
+    [ 8, 1, 3, 3, 256 ],
+    [ 8, 1, 2, 5, 64 ]
+];
+for x in para do
+    F:=hilver(x[1],x[2],x[3],x[4],x[5],0,"Recon");
+    if F[1] ne F[2] then print x,F; end if;
+end for;*/
+
+procedure clscplx(n,v,m,q)
+    Q:=[1,1,1,1000];
+    o:=n-v;
+    A:=Log(2,3*(2*Log(2,q)^2+Log(2,q)));
+
+    for k in [1..o-1] do
+        if To(n-k,m,2,o-k) le 0 then
+            C:=Floor(2*Log(2,Binomial(n-k,o-k))+A+Log(2,Binomial(v+2,2)));
+            if C le Q[4] then 
+                Q:=[1,k,o-k,C];
+            end if;
+        end if;
+    end for;
+
+    if Q eq [1,1,1,1000] then
+        for l in [2..3] do
+            p:=2^l;
+            for k in [1..o-1] do
+                for d in [2..(o-k)*(p-1)] do
+                    if To(n-k,m,p,d) le 0 then
+                        C:=Floor(2*Ilog2(Fo(n-k,p,d)-Fo(o-k,p,d)+1)+A+Log(2,Binomial(n-k+1,2)));
+                        if C le Q[4] then 
+                            Q:=[l,k,d,C];
+                        end if;
+                    end if;
+                end for;
+            end for;
+            if Q ne [1,1,1,1000] then
+                break;
+            end if;
+        end for;
+    end if;
+
+    if Q ne [1,1,1,1000] then
+        printf "mod 2^%o, minus %o oil variables, solving degree is %o, complexity is %o\n", Q[1],Q[2],Q[3],Q[4];
+    end if;
+end procedure;
